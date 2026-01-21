@@ -17,26 +17,8 @@ import torch.nn.functional as F
 EPS = 1e-15
 
 
-# def normalize(adata, highly_genes=3000, normalize_input=True):
-#     print("start select HVGs")
-#     adata = np.delete(adata, np.mean(adata, axis=0) < 0.04, axis=1)
-#     adata1 = np.int64(adata > 0)
-#     adata = np.delete(adata, np.sum(adata1, axis=0) < 300, axis=1)
-#     adata = np.delete(adata, np.std(adata, axis=0) < 0.1, axis=1)
-#     top_k_idx = np.std(adata, axis=0).argsort()[::-1][0:highly_genes]
-#     top_k_idx = top_k_idx[::-1]
-#     adata = adata[:, top_k_idx]
-#     if normalize_input:
-#         adata = adata / np.sum(adata, axis=1).reshape(-1, 1) * 10000
-#     return sc.AnnData(adata)
-
-
 def regularization_loss(emb, graph_nei, graph_neg):
-    mat = torch.sigmoid(cosine_similarity(emb))  # .cpu()
-    # mat = pd.DataFrame(mat.cpu().detach().numpy()).values
-
-    # graph_neg = torch.ones(graph_nei.shape) - graph_nei
-
+    mat = torch.sigmoid(cosine_similarity(emb))
     neigh_loss = torch.mul(graph_nei, torch.log(mat)).mean()
     neg_loss = torch.mul(graph_neg, torch.log(1 - mat)).mean()
     pair_loss = -(neigh_loss + neg_loss) / 2
@@ -62,6 +44,7 @@ def consistency_loss(emb1, emb2):
     cov2 = torch.matmul(emb2, emb2.t())
     return torch.mean((cov1 - cov2) ** 2)
 
+    
 def off_diagonal(x):
     """
     off-diagonal elements of x
@@ -73,6 +56,7 @@ def off_diagonal(x):
     assert n == m
     return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
+    
 def cross_correlation(Z_v1, Z_v2):
     """
     calculate the cross-view correlation matrix S
@@ -83,6 +67,7 @@ def cross_correlation(Z_v1, Z_v2):
     """
     return torch.mm(F.normalize(Z_v1, dim=1), F.normalize(Z_v2, dim=1).t())
 
+    
 def correlation_reduction_loss(S):
     """
     the correlation reduction loss L: MSE for S and I (identical matrix)
@@ -92,6 +77,7 @@ def correlation_reduction_loss(S):
     """
     return torch.diagonal(S).add(-1).pow(2).mean() + off_diagonal(S).pow(2).mean()
 
+    
 def dicr_loss(com1,com2):
     """
     Dual Information Correlation Reduction loss L_{DICR}
@@ -103,33 +89,24 @@ def dicr_loss(com1,com2):
     Returns:
         L_{DICR}
     """
-    # Sample-level Correlation Reduction (SCR)
-    # cross-view sample correlation matrix
-
-
-    # Feature-level Correlation Reduction (FCR)
-    # cross-view feature correlation matrix
     S_F_ae = cross_correlation(com1.t(), com2.t())
-
-
-    # loss of FCR
     L_F_ae = correlation_reduction_loss(S_F_ae)
-
-    # loss of DICR
     loss_dicr =  L_F_ae
-
     return loss_dicr
+
 
 def xin1_loss(emb1, xin1):
     assert emb1.shape == xin1.shape
     mae1 = F.mse_loss(emb1, xin1)
     return mae1
 
+    
 def xin2_loss(emb2, xin2):
     assert emb2.shape == xin2.shape
     mae2 = F.mse_loss(emb2, xin2)
     return mae2
 
+    
 def spatial_construct_graph1(adata, radius=150):
 
     coor = pd.DataFrame(adata.obsm['spatial'])
@@ -137,7 +114,6 @@ def spatial_construct_graph1(adata, radius=150):
     coor.columns = ['imagerow', 'imagecol']
     A=np.zeros((coor.shape[0],coor.shape[0]))
 
-    # print("coor:", coor)
     nbrs = sklearn.neighbors.NearestNeighbors(radius=radius).fit(coor)
     distances, indices = nbrs.radius_neighbors(coor, return_distance=True)
 
@@ -153,9 +129,8 @@ def spatial_construct_graph1(adata, radius=150):
 
     sadj = sp.coo_matrix(A, dtype=np.float32)
     sadj = sadj + sadj.T.multiply(sadj.T > sadj) - sadj.multiply(sadj.T > sadj)
-    # nsadj = normalize_sparse_matrix(sadj + sp.eye(sadj.shape[0]))
-    # nsadj = sparse_mx_to_torch_sparse_tensor(nsadj)
-    return sadj, graph_nei, graph_neg#, nsadj
+    return sadj, graph_nei, graph_neg
+
 
 def spatial_construct_graph(positions, k=15):
     print("start spatial construct graph")
@@ -179,30 +154,17 @@ def spatial_construct_graph(positions, k=15):
             break
     row, col = np.diag_indices_from(A)
     A[row, col] = 0
-    # index = np.argwhere(A > 0)
-    # np.savetxt('./result/edge.csv', index, delimiter=',')
-
     graph_nei = torch.from_numpy(A)
-    # print(type(graph_nei),graph_nei)
     graph_neg = torch.ones(positions.shape[0], positions.shape[0]) - graph_nei
 
     sadj = sp.coo_matrix(A, dtype=np.float32)
     sadj = sadj + sadj.T.multiply(sadj.T > sadj) - sadj.multiply(sadj.T > sadj)
-    # nsadj = normalize_sparse_matrix(sadj + sp.eye(sadj.shape[0]))
-    # nsadj = sparse_mx_to_torch_sparse_tensor(nsadj)
-    return sadj, graph_nei, graph_neg#, nsadj
+    return sadj, graph_nei, graph_neg
+
 
 def features_construct_graph1(features, k=15, pca=None, mode="connectivity", metric="cosine"):
     from sklearn.metrics import pairwise_distances
-    # data,
-    # n_components = 50,
-    # gene_dist_type = "cosine",
-    # ):
     pca = PCA(n_components=50)
-    # if isinstance(features, np.ndarray):
-    #     data_pca = pca.fit_transform(features)
-    # elif isinstance(features, csr_matrix):
-    #     data = features.toarray()
     data_pca = pca.fit_transform(features.toarray())
     gene_correlation = 1 - pairwise_distances(data_pca, metric="cosine")
     return gene_correlation
@@ -211,45 +173,33 @@ def features_construct_graph1(features, k=15, pca=None, mode="connectivity", met
     print("start features construct graph")
     if pca is not None:
         features = dopca(features, dim=pca).reshape(-1, 1)
-    # print("k: ", k)
-    # print("features_construct_graph features", features.shape)
     A = kneighbors_graph(features, k + 1, mode=mode, metric=metric, include_self=True)
     A = A.toarray()
     row, col = np.diag_indices_from(A)
     A[row, col] = 0
-    # index = np.argwhere(A > 0)
-    # np.savetxt('./result/fadj.csv', index, delimiter=',')
     fadj = sp.coo_matrix(A, dtype=np.float32)
     fadj = fadj + fadj.T.multiply(fadj.T > fadj) - fadj.multiply(fadj.T > fadj)
-    # nfadj = normalize_sparse_matrix(fadj + sp.eye(fadj.shape[0]))
-    # nfadj = sparse_mx_to_torch_sparse_tensor(nfadj)
-    return fadj#, nfadj
+    return fadj
+
 
 def features_construct_graph(features, k=15, pca=None, mode="connectivity", metric="cosine"):
     print("start features construct graph")
     if pca is not None:
         features = dopca(features, dim=pca).reshape(-1, 1)
-    # print("k: ", k)
-    # print("features_construct_graph features", features.shape)
     A = kneighbors_graph(features, k + 1, mode=mode,metric=metric,include_self=True)
     A = A.toarray()
     row, col = np.diag_indices_from(A)
     A[row, col] = 0
-    # index = np.argwhere(A > 0)
-    # np.savetxt('./result/fadj.csv', index, delimiter=',')
     fadj = sp.coo_matrix(A, dtype=np.float32)
     fadj = fadj + fadj.T.multiply(fadj.T > fadj) - fadj.multiply(fadj.T > fadj)
-    # nfadj = normalize_sparse_matrix(fadj + sp.eye(fadj.shape[0]))
-    # nfadj = sparse_mx_to_torch_sparse_tensor(nfadj)
-    return fadj#, nfadj
+    return fadj
+
 
 def mclust_R(adata, num_cluster, modelNames='EEE', used_obsm='emb', random_seed=2020):
     """\
     Clustering using the mclust algorithm.
     The parameters are the same as those in the R package mclust.
     """
-    # -*- coding : utf-8-*-
-    # coding:unicode_escape
 
     np.random.seed(random_seed)
     import rpy2.robjects as robjects
@@ -277,7 +227,6 @@ def get_adj(data, pca=None, k=25, mode="connectivity", metric="cosine"):
     A = kneighbors_graph(data, k, mode=mode, metric=metric, include_self=True)
     adj = A.toarray()
     adj_n = norm_adj(adj)
-    # S = cosine_similarity(data)
     return adj, adj_n  # , S
 
 
@@ -307,11 +256,8 @@ class louvain:
         return
 
     def updateLabels(self, level):
-        # Louvain algorithm labels community at different level (with dendrogram).
-        # Here we want the community labels at a given level.
         level = int((len(self.dendrogram) - 1) * level)
         partition = community_louvain.partition_at_level(self.dendrogram, level)
-        # Convert dictionary to numpy array
         self.labels = np.array(list(partition.values()))
         return
 
@@ -460,7 +406,6 @@ def res_search_fixed_clus(cluster_type, adata, fixed_clus_count, increment=0.01)
         for res in sorted(list(np.arange(0.14, 2.5, increment))):#, reverse=True):
             sc.tl.leiden(adata, random_state=0, resolution=res)
             count_unique_leiden = len(pd.DataFrame(adata.obs['leiden']).leiden.unique())
-            # print(res,' ' , count_unique_leiden)
             if count_unique_leiden == fixed_clus_count:
                 cluster_labels = np.array(adata.obs['leiden'])
                 flag=0
@@ -473,7 +418,6 @@ def res_search_fixed_clus(cluster_type, adata, fixed_clus_count, increment=0.01)
         for res in sorted(list(np.arange(0.14, 2.5, increment))):#, reverse=True):
             sc.tl.louvain(adata, random_state=0, resolution=res)
             count_unique_louvain = len(pd.DataFrame(adata.obs['louvain']).louvain.unique())
-            # print(res,' ' , count_unique_louvain)
             if count_unique_louvain == fixed_clus_count:
                 cluster_labels = np.array(adata.obs['louvain'])
                 flag = 0
@@ -489,7 +433,7 @@ def PCA_process(X, nps):
     from sklearn.decomposition import PCA
     print('Shape of data to PCA:', X.shape)
     pca = PCA(n_components=nps)
-    X_PC = pca.fit_transform(X)     #等价于pca.fit(X) pca.transform(X)
+    X_PC = pca.fit_transform(X)
     print('Shape of data output by PCA:', X_PC.shape)
     print('PCA recover:', pca.explained_variance_ratio_.sum())
     return X_PC
