@@ -13,7 +13,7 @@ from input_my_data import load_g_inputs
 from P_G_model import *
 from utils import *
 
-# matplotlib.use('Agg')  # 使用非交互式后端
+# matplotlib.use('Agg')
 warnings.filterwarnings("ignore")
 
 # if torch.cuda.is_available():
@@ -57,24 +57,21 @@ if __name__ == "__main__":
 
     for i in range(len(datasets)):
 
-        # === 文件路径 ===
         H5AD_PATH = "generate_data/" + datasets[i] + "/" + datasets[i] + ".h5ad"
 
         dataset = datasets[i]
         config_file = 'DLPFC.ini'
         print(dataset)
 
-        # ---------- 1、读 G 数据 ----------
         x_g, meta, adata, features, labels, H_T, H_F = load_g_inputs(
             h5ad_path=H5AD_PATH,
             spatial_radius=Config(config_file).radius,
             k_feat_hyper=Config(config_file).k
         )
-        nfeat = x_g.size(1)  # 基因特征维度
+        nfeat = x_g.size(1)
         print(adata)
 
 
-        # ---------- 2、可视化人工标注结果----------
         plt.rcParams["figure.figsize"] = (3, 3)
         savepath = 'result/DLPFC/' + dataset + '/'
         if not os.path.exists(savepath):
@@ -83,17 +80,17 @@ if __name__ == "__main__":
         sc.pl.spatial(adata, img_key="hires", color=['ground_truth'], title=title, show=False)
         plt.savefig(savepath + 'Manual Annotation.jpg', bbox_inches='tight', dpi=600)
         plt.show()
-        # 加载配置文件
+
         config = Config(config_file)
         cuda = not config.no_cuda and torch.cuda.is_available()
         use_seed = not config.no_seed
-        # 处理标签数据
+
         _, ground = np.unique(np.array(labels, dtype=str), return_inverse=True)
         ground = torch.LongTensor(ground)
         config.n = len(ground)
         config.class_num = len(ground.unique())
         config.epochs = config.epochs + 1
-        # 随机种子设置
+
         np.random.seed(config.seed)
         torch.cuda.manual_seed(config.seed)
         random.seed(config.seed)
@@ -107,7 +104,6 @@ if __name__ == "__main__":
             # torch.backends.cudnn.benchmark = True
 
 
-        # ---------- 3、构建模型 ----------
         cfg = PGConfig()
         print('dataset:', dataset, ' lr:', config.lr)
         model = Our_Super_Plus_Pro_Max_Ultra_Model(
@@ -128,12 +124,11 @@ if __name__ == "__main__":
         min_zinbloss = 999  # 记录最佳ZINBloss
 
 
-        # ---------- 4、构建模型 ----------
         for epoch in range(config.epochs):
             EMB, mean, loss, q_E = train(model, optimizer, x_g, H_F, H_T, adata, epoch, emb_max, scale_factor=1.0)
             # KMeans聚类
             kmeans = KMeans(n_clusters=config.class_num).fit(EMB)
-            idx = kmeans.labels_  # 获取聚类标签
+            idx = kmeans.labels_ 
 
             coords = np.asarray(adata.obsm["spatial"], dtype=float)
             idx = spatial_majority_vote(idx, coords, radius=Config(config_file).radius, min_frac=0.5, max_iter=1)
@@ -162,15 +157,11 @@ if __name__ == "__main__":
         plt.show()
 
         sc.pp.neighbors(adata, use_rep='mean')
-        # sc.pp.neighbors(adata, use_rep='emb')
         sc.tl.umap(adata)
-        # sc.tl.umap(adata, random_state=2025)
         plt.rcParams["figure.figsize"] = (3, 3)
         sc.tl.paga(adata, groups='idx')
         sc.pl.paga_compare(adata, legend_fontsize=10, frameon=False, size=5, title=title, legend_fontoutline=2,
                            show=False, legend_loc='none', text_kwds={'alpha': 0})  # 没有legend
-        # sc.pl.paga_compare(adata, legend_fontsize=10, frameon=False, size=5, title=title, legend_fontoutline=2,
-        #                    show=False, text_kwds={'alpha': 0}, random_state=2025)
         plt.savefig(savepath + 'OurSuperModel_umap_mean.jpg', bbox_inches='tight', dpi=600)
         plt.show()
 
@@ -180,10 +171,6 @@ if __name__ == "__main__":
         adata.layers['mean'] = mean_max
         adata.obsm["sadj"] = adata.obsm["A_T_pos"].numpy()
         for k in ("A_T_pos", "A_F_pos", "E_T_pairs"):
-        # for k in ("A_F_pos", "E_T_pairs"):
             if k in adata.obsm:
                 del adata.obsm[k]
         adata.write(savepath + 'OurSuperModel.h5ad')
-
-
-        # sc.pl.umap(adata, color=['idx'], frameon = False, size=5)
