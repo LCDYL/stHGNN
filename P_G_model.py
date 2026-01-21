@@ -32,9 +32,6 @@ class PGConfig:
     alpha = 0.5
     beta = 0.1
     gamma = 0.001
-    # alpha = 0
-    # beta = 0.1
-    # gamma = 0
 
     reg_on = "spatial"       # "spatial" | "feature" | "both"
 
@@ -56,13 +53,6 @@ class G_HGNN_F(nn.Module):
         self.conv3 = HypergraphConv(cfg.g_hidden_F_2, cfg.out_dim)
         self.bn3 = BatchNorm(cfg.out_dim)
         self.drop = cfg.dropout
-        # self.conv1 = GCNConv(in_dim, cfg.g_hidden_F_1)
-        # self.bn1 = BatchNorm(cfg.g_hidden_F_1)
-        # self.conv2 = GCNConv(cfg.g_hidden_F_1, cfg.g_hidden_F_2)
-        # self.bn2 = BatchNorm(cfg.g_hidden_F_2)
-        # self.conv3 = GCNConv(cfg.g_hidden_F_2, cfg.out_dim)
-        # self.bn3 = BatchNorm(cfg.out_dim)
-        # self.drop = cfg.dropout
 
     def forward(self, x_g:torch.Tensor, H_F:torch.LongTensor):
         h = self.conv1(x_g, H_F)
@@ -77,24 +67,7 @@ class G_HGNN_F(nn.Module):
         h = self.bn3(h); h = F.relu(h)
         h = F.dropout(h, p=self.drop, training=self.training)
 
-        return h  # emb1: [Ng, g_out_F]
-        # N = x_g.size(0)
-        # A_F_pos, _ = incidence_to_adj(H_F, num_nodes=N, keep_self_loops=False, binary=True, dtype=x_g.dtype)
-        # edge_index = A_F_pos.nonzero(as_tuple=False).t().contiguous().long()  # [2, E’]
-        #
-        # h = self.conv1(x_g, edge_index)
-        # h = self.bn1(h); h = F.relu(h)
-        # h = F.dropout(h, p=self.drop, training=self.training)
-        #
-        # h = self.conv2(h, edge_index)
-        # h = self.bn2(h); h = F.relu(h)
-        # h = F.dropout(h, p=self.drop, training=self.training)
-        #
-        # h = self.conv3(h, edge_index)
-        # h = self.bn3(h); h = F.relu(h)
-        # h = F.dropout(h, p=self.drop, training=self.training)
-        #
-        # return h  # emb1: [Ng, g_out_F]
+        return h
 
 
 class G_HGNN_T(nn.Module):
@@ -114,13 +87,6 @@ class G_HGNN_T(nn.Module):
         self.conv3 = HypergraphConv(cfg.g_hidden_T_2, cfg.out_dim)
         self.bn3 = BatchNorm(cfg.out_dim)
         self.drop = cfg.dropout
-        # self.conv1 = GCNConv(in_dim, cfg.g_hidden_T_1)
-        # self.bn1 = BatchNorm(cfg.g_hidden_T_1)
-        # self.conv2 = GCNConv(cfg.g_hidden_T_1, cfg.g_hidden_T_2)
-        # self.bn2 = BatchNorm(cfg.g_hidden_T_2)
-        # self.conv3 = GCNConv(cfg.g_hidden_T_2, cfg.out_dim)
-        # self.bn3 = BatchNorm(cfg.out_dim)
-        # self.drop = cfg.dropout
 
     def forward(self, x_g:torch.Tensor, H_T:torch.LongTensor):
         h = self.conv1(x_g, H_T)
@@ -135,24 +101,7 @@ class G_HGNN_T(nn.Module):
         h = self.bn3(h); h = F.relu(h)
         h = F.dropout(h, p=self.drop, training=self.training)
 
-        return h  # emb1: [Ng, g_out_S]
-        # N = x_g.size(0)
-        # A_T_pos, _ = incidence_to_adj(H_T, num_nodes=N, keep_self_loops=False, binary=True, dtype=x_g.dtype)
-        # edge_index = A_T_pos.nonzero(as_tuple=False).t().contiguous().long()
-        #
-        # h = self.conv1(x_g, edge_index)
-        # h = self.bn1(h); h = F.relu(h)
-        # h = F.dropout(h, p=self.drop, training=self.training)
-        #
-        # h = self.conv2(h, edge_index)
-        # h = self.bn2(h); h = F.relu(h)
-        # h = F.dropout(h, p=self.drop, training=self.training)
-        #
-        # h = self.conv3(h, edge_index)
-        # h = self.bn3(h); h = F.relu(h)
-        # h = F.dropout(h, p=self.drop, training=self.training)
-        #
-        # return h  # emb1: [Ng, g_out_S]
+        return h
 
 
 class Our_Super_Plus_Pro_Max_Ultra_Model(nn.Module):
@@ -412,9 +361,6 @@ def pair_smooth_loss(Z, A_pos):
     return num / deg.clamp_min(1)
 
 
-
-
-
 def incidence_to_adj(H: torch.LongTensor,
                      num_nodes: int,
                      keep_self_loops: bool = True,
@@ -454,5 +400,6 @@ def incidence_to_adj(H: torch.LongTensor,
     if not keep_self_loops:
         A_neg.fill_diagonal_(0)
     return A, A_neg
+
 
 
