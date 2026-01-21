@@ -201,15 +201,15 @@ class Our_Super_Plus_Pro_Max_Ultra_Model(nn.Module):
         self.S_beta = nn.Parameter(torch.tensor(0.0))
         self._row_softmax = nn.Softmax(dim=1)
 
-        # ===== DEC: 极简实现所需的属性/参数 =====
+        # ===== DEC =====
         self.k_clusters = k_clusters
         K = int(self.k_clusters)
-        d = cfg.out_dim  # 与 EMB 维度一致
-        # 三路质心：空间(embT)、特征(embF)、融合(EMB)
+        d = cfg.out_dim
+
         self.dec_centroids_T = nn.Parameter(torch.empty(K, d))  # for embT
         self.dec_centroids_F = nn.Parameter(torch.empty(K, d))  # for embF
         self.dec_centroids_E = nn.Parameter(torch.empty(K, d))  # for EMB
-        # 一次性初始化标记
+
         self.register_buffer("_dec_init_T", torch.tensor(0, dtype=torch.long))
         self.register_buffer("_dec_init_F", torch.tensor(0, dtype=torch.long))
         self.register_buffer("_dec_init_E", torch.tensor(0, dtype=torch.long))
@@ -224,9 +224,7 @@ class Our_Super_Plus_Pro_Max_Ultra_Model(nn.Module):
         N, d = Z.shape
         K = C.shape[0]
 
-        # === 始终使用 Z（与后续 q 的空间一致）来更新质心 ===
         with torch.no_grad():
-            # sklearn 在 CPU/NumPy 上运行；Z 必须转 CPU→NumPy
             Z_np = Z.detach().cpu().numpy()
             # , n_init=10, random_state=config.seed, algorithm="lloyd"
             km = KMeans(n_clusters=K)
@@ -236,7 +234,6 @@ class Our_Super_Plus_Pro_Max_Ultra_Model(nn.Module):
             C.data.copy_(centers)
             init_flag.fill_(1)
 
-        # === 距离 & q ===
         z2 = (Z * Z).sum(dim=1, keepdim=True)  # [N,1]
         c2 = (C * C).sum(dim=1, keepdim=True).t()  # [1,K]
         dist2 = z2 + c2 - 2.0 * (Z @ C.t())  # [N,K]
@@ -244,7 +241,6 @@ class Our_Super_Plus_Pro_Max_Ultra_Model(nn.Module):
         q = (1.0 + dist2 / max(1e-6, v)).pow(-0.5 * (v + 1.0))
         q = q / q.sum(dim=1, keepdim=True).clamp_min(1e-12)
 
-        # === 目标分布 p：detach 作为“常量目标” ===
         fk = q.sum(dim=0, keepdim=True)  # [1,K]
         p = (q * q) / fk.clamp_min(1e-12)
         p = p / p.sum(dim=1, keepdim=True).clamp_min(1e-12)
@@ -285,10 +281,8 @@ class Our_Super_Plus_Pro_Max_Ultra_Model(nn.Module):
         yT = embT + attn_T.squeeze(0)  # 残差到 T
         # 双向对齐后的平均
         y = 0.5 * (yF + yT)
-        # 轻量 FFN + 残差 LN（Transformer 标配）
+        # 轻量 FFN + 残差 LN
         EMB = self.fuse_ln(y + self.fuse_ffn(y))  # [N, d]
-
-        # EMB = embF
 
         ZL = EMB  # ZL := EMB  (N,d)
         # 归一化自相关矩阵 S
@@ -351,11 +345,7 @@ class Our_Super_Plus_Pro_Max_Ultra_Model(nn.Module):
 
         wsum = (wT + wF + wE).clamp_min(1e-6)
         dec_loss = (wT * kl_T + wF * kl_F + wE * kl_E) / wsum
-
-        # loss = self.alpha*zinb_loss + beta*reg_loss + dec_loss + self.omiga*sp_loss
-        # loss = self.alpha*zinb_loss + beta*reg_loss + self.gamma*dec_loss + self.omiga*sp_loss
         loss = self.alpha*zinb_loss + beta*reg_loss + self.gamma*dec_loss
-        # loss = self.alpha*zinb_loss + beta*reg_loss
 
         return EMB, pi, theta, mu, loss, q_E
 
@@ -404,22 +394,16 @@ def pair_smooth_loss(Z, A_pos):
     """
     if A_pos is None or A_pos.numel() == 0:
         return Z.new_tensor(0.)
-    # 确保设备/类型一致（避免隐式拷贝/报错）
     if A_pos.device != Z.device or A_pos.dtype != Z.dtype:
         A_pos = A_pos.to(device=Z.device, dtype=Z.dtype, non_blocking=True)
 
-    # 度向量与总边数
-    deg = A_pos.sum()                      # 标量 (#edges)
+    deg = A_pos.sum()
     if deg.item() == 0:
         return Z.new_tensor(0.)
 
-    # 仅用 O(N^2) 的中间量：n2 与 Gram
     n2 = (Z * Z).sum(dim=1)                # [N]
     G  = Z @ Z.t()                         # [N,N]
 
-    # sum_{(i,j)∈E} ||zi - zj||^2
-    # = sum_{(i,j)} (n2[i] + n2[j] - 2*G[i,j])
-    # = 2 * sum_i(deg_i * n2[i]) - 2 * sum_{(i,j)} G[i,j]
     deg_i = A_pos.sum(dim=1)               # [N]
     term1 = 2.0 * (deg_i * n2).sum()
     term2 = 2.0 * (A_pos * G).sum()
@@ -470,4 +454,5 @@ def incidence_to_adj(H: torch.LongTensor,
     if not keep_self_loops:
         A_neg.fill_diagonal_(0)
     return A, A_neg
+
 
