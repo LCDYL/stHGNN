@@ -23,7 +23,6 @@ def load_g_inputs(
     # === 空间半径超边 H_T ===
     coords = np.asarray(adata.obsm["spatial"], dtype=np.float32)  # 坐标，(Ng, 2)
     nbrs = NearestNeighbors(radius=spatial_radius, metric="euclidean", n_jobs=1).fit(coords)
-    # indices: list-like，长度 Ng；第 i 项是 i 的半径邻居索引（变长）
     indices = nbrs.radius_neighbors(coords, return_distance=False)
     rows_T, cols_T = [], []
     for e in range(Ng):
@@ -42,7 +41,7 @@ def load_g_inputs(
     topk_idx = torch.topk(sim, k=min(k_feat_hyper + 1, Ng), dim=1).indices.cpu().numpy()
     rows_F, cols_F = [], []
     for e in range(Ng):
-        members = np.unique(topk_idx[e].astype(np.int64))  # 含自身
+        members = np.unique(topk_idx[e].astype(np.int64))
         rows_F.extend(members.tolist())
         cols_F.extend([e] * len(members))
     H_F = torch.tensor([rows_F, cols_F], dtype=torch.long)  # [2, E_F]
@@ -61,34 +60,11 @@ def load_g_inputs(
     features = torch.FloatTensor(adata.X)
     labels = adata.obs['ground']
 
-    # 写入一些其它的东西
     N = x_g.size(0)
     A_T_pos, _ = incidence_to_adj(torch.LongTensor(H_T), N)
     A_F_pos, _ = incidence_to_adj(torch.LongTensor(H_F), N)
     adata.obsm["A_T_pos"] = A_T_pos
     adata.obsm["A_F_pos"] = A_F_pos
-
-    # # === 从半径邻居 indices 构建空间边对 E_T_pairs（无向、去重） ===
-    # rows_e, cols_e = [], []
-    # for i, neigh_i in enumerate(indices):
-    #     if neigh_i is None or len(neigh_i) == 0:
-    #         continue
-    #     for j in neigh_i:
-    #         if i == j:
-    #             continue
-    #         a, b = (i, j) if i < j else (j, i)  # 只保留 i<j 的一条
-    #         rows_e.append(a);
-    #         cols_e.append(b)
-    #
-    # if len(rows_e) == 0:
-    #     E_T_pairs = np.zeros((0, 2), dtype=np.int64)
-    # else:
-    #     E_T_pairs = np.stack([rows_e, cols_e], axis=1).astype(np.int64)
-    #     # 去重（避免 i<j 重复）
-    #     E_T_pairs = np.unique(E_T_pairs, axis=0)
-    #
-    # adata.obsm["E_T_pairs"] = E_T_pairs  # numpy int64，便于 anndata 写盘
-    # print(adata.obsm["E_T_pairs"])
 
     return x_g, meta, adata, features, labels, H_T, H_F
 
@@ -107,4 +83,5 @@ if __name__ == '__main__':
     print(features)
     print(labels)
     print(H_T)
+
     print(H_F)
