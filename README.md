@@ -101,8 +101,41 @@ The outputs include spatial-domain labels, latent embeddings, reconstructed expr
 
 ## Citation
 
-this paper is under review.
+If you use this work, please cite:
+
+```bibtex
+@article{tang2026sthgnn,
+  title={stHGNN: Deciphering spatial transcriptomics data via dual hypergraph learning enhancement},
+  author={Tang, Jinghong and Chen, Lezhi and Yi, Siyu and Liu, Wei and Li, Mingyang and Wang, Yifan and Qiao, Ziyue and Guo, Bin and Liu, Xianggen and Lv, Jiancheng and others},
+  journal={Pattern Recognition},
+  pages={114585},
+  year={2026},
+  publisher={Elsevier}
+}
+```
 
 ## License
 
-This project is released under the MIT License.
+```text
+MIT License
+
+Copyright (c) 2026 Jinghong Tang et al.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
